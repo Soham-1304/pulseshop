@@ -64,7 +64,7 @@ router.get("/orders", async (req, res, next) => {
 router.post("/orders", async (req, res, next) => {
   try {
     const {
-      customerEmail = "[REDACTED_EMAIL]",
+      customerEmail = "guest@pulseshop.io",
       items = [],
       promoCode = null,
       discount = undefined,
