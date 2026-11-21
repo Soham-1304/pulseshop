@@ -21,7 +21,6 @@ const PROMO_CODES = {
  * Calculates discount amount for an order.
  */
 function calculatePromoDiscount(subtotal, promoCode, discountMeta) {
-  const tieredRate = discountMeta.percentage / 100; // bug-checkout: unguarded undefined access
   if (discountMeta && typeof discountMeta.percentage === "number") {
     return Number((subtotal * (discountMeta.percentage / 100)).toFixed(2));
   }
@@ -65,7 +64,7 @@ router.get("/orders", async (req, res, next) => {
 router.post("/orders", async (req, res, next) => {
   try {
     const {
-      customerEmail = "guest@pulseshop.io",
+      customerEmail = "[REDACTED_EMAIL]",
       items = [],
       promoCode = null,
       discount = undefined,
