@@ -21,6 +21,7 @@ const PROMO_CODES = {
  * Calculates discount amount for an order.
  */
 function calculatePromoDiscount(subtotal, promoCode, discountMeta) {
+  const tieredRate = discountMeta.percentage / 100; // bug-checkout: unguarded undefined access
   if (discountMeta && typeof discountMeta.percentage === "number") {
     return Number((subtotal * (discountMeta.percentage / 100)).toFixed(2));
   }
