@@ -2,195 +2,171 @@ import React, { useEffect, useRef, useState } from "react";
 
 const CATEGORIES = ["All", "Peripherals", "Displays", "Connectivity", "Audio", "Storage"];
 
-const FAULT_PRESETS = [
+const DEFAULT_CATALOG = [
   {
-    id: "healthy",
-    label: "Healthy Baseline (Reset All)",
-    target: "reset-all",
-    mode: "healthy",
-    tone: "ok",
-    description: "Restores all microservices to normal latency and zero error state.",
+    sku: "PS-KB-01",
+    name: "Keychron Q1 Pro Wireless Mechanical Keyboard",
+    category: "Peripherals",
+    price: 199.0,
+    stock: 42,
+    rating: 4.9,
+    reviews: 184,
+    badge: "Bestseller",
+    image: "https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=800&q=80",
+    description: "CNC machined aluminum body, hot-swappable tactile switches, QMK/VIA wireless.",
   },
   {
-    id: "bug-checkout",
-    label: "Code Fault: bug-checkout (500 TypeError)",
-    target: "orders",
-    mode: "bug-checkout",
-    tone: "err",
-    description:
-      "Simulates commit b5de597 on branch bug-checkout: unguarded discountMeta.percentage access in services/orders/src/routes/orders.js throws TypeError.",
+    sku: "PS-MN-02",
+    name: "ProDisplay 34\" WQHD 165Hz Curved OLED Monitor",
+    category: "Displays",
+    price: 749.0,
+    stock: 18,
+    rating: 4.8,
+    reviews: 96,
+    badge: "New Arrival",
+    image: "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=800&q=80",
+    description: "0.03ms response time, 99% DCI-P3 cinema color gamut, 90W USB-C single-cable dock.",
   },
   {
-    id: "silent-order-drop",
-    label: "Silent Business Fault: silent-order-drop",
-    target: "orders",
-    mode: "silent-order-drop",
-    tone: "warn",
-    description:
-      "Checkout returns HTTP 201 OK with zero 5xx logs, but orders are not saved to MongoDB. Caught by Watcher business metric drop rule.",
+    sku: "PS-DK-03",
+    name: "CalDigit TS4 Thunderbolt 4 18-Port Workstation Dock",
+    category: "Connectivity",
+    price: 379.0,
+    stock: 31,
+    rating: 4.9,
+    reviews: 215,
+    badge: "Pro Gear",
+    image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
+    description: "98W host charging, 2.5GbE Ethernet, dual 6K 60Hz display output, UHS-II SD reader.",
   },
   {
-    id: "slow-query",
-    label: "Latency Spike: slow-query (+1450ms p95)",
-    target: "orders",
-    mode: "slow-query",
-    latencyMs: 1450,
-    tone: "warn",
-    description:
-      "Injects a 1.45s delay in orders service, causing p95 response time to exceed 2x baseline.",
+    sku: "PS-AU-04",
+    name: "Audeze Maxwell Planar Magnetic Wireless Headphones",
+    category: "Audio",
+    price: 299.0,
+    stock: 25,
+    rating: 4.8,
+    reviews: 142,
+    badge: "Studio Pick",
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+    description: "90mm planar magnetic drivers, 80-hour battery life, ultra-low latency USB-C dongle.",
   },
   {
-    id: "payments-outage",
-    label: "Runtime Fault: Payments Outage (No Commit)",
-    target: "payments",
-    mode: "outage",
-    tone: "err",
-    description:
-      "Simulates live judge chaos on payments service without a release commit. SRE Agent tags this as a runtime fault.",
+    sku: "PS-MS-05",
+    name: "MX Master 3S MagSpeed Ergonomic Wireless Mouse",
+    category: "Peripherals",
+    price: 99.0,
+    stock: 64,
+    rating: 4.9,
+    reviews: 410,
+    badge: "Essential",
+    image: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=800&q=80",
+    description: "8K DPI Darkfield optical sensor tracks on glass, quiet tactile clicks, USB-C quick charge.",
+  },
+  {
+    sku: "PS-ST-06",
+    name: "NVMe Gen5 2TB Portable Aluminum SSD (10,500MB/s)",
+    category: "Storage",
+    price: 229.0,
+    stock: 50,
+    rating: 4.9,
+    reviews: 88,
+    badge: "Fastest",
+    image: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=800&q=80",
+    description: "Thunderbolt 4 / USB4 rugged anodized enclosure with hardware AES-256 encryption.",
   },
 ];
 
-function HardwareSchematic({ category }) {
-  switch (category) {
-    case "Peripherals":
-      return (
-        <svg width="72" height="44" viewBox="0 0 72 44" fill="none" aria-hidden="true">
-          <rect x="2" y="8" width="68" height="28" rx="4" stroke="currentColor" strokeWidth="1.5" />
-          <rect x="8" y="14" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="17" y="14" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="26" y="14" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="35" y="14" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="44" y="14" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="53" y="14" width="11" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="18" y="24" width="36" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" />
-        </svg>
-      );
-    case "Displays":
-      return (
-        <svg width="72" height="44" viewBox="0 0 72 44" fill="none" aria-hidden="true">
-          <rect x="4" y="4" width="64" height="28" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M36 32V40M24 40H48" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="36" cy="18" r="5" stroke="currentColor" strokeWidth="1.2" />
-        </svg>
-      );
-    case "Connectivity":
-      return (
-        <svg width="72" height="44" viewBox="0 0 72 44" fill="none" aria-hidden="true">
-          <rect x="6" y="14" width="60" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="16" cy="22" r="2.5" stroke="currentColor" strokeWidth="1.2" />
-          <circle cx="26" cy="22" r="2.5" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="36" y="19" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="48" y="19" width="10" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" />
-        </svg>
-      );
-    case "Audio":
-      return (
-        <svg width="72" height="44" viewBox="0 0 72 44" fill="none" aria-hidden="true">
-          <path
-            d="M18 26V20C18 10.6112 26.0589 3 36 3C45.9411 3 54 10.6112 54 20V26"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          />
-          <rect x="13" y="23" width="8" height="14" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <rect x="51" y="23" width="8" height="14" rx="3" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-      );
-    default:
-      return (
-        <svg width="72" height="44" viewBox="0 0 72 44" fill="none" aria-hidden="true">
-          <rect x="8" y="12" width="56" height="20" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M16 12V8M26 12V8M36 12V8M46 12V8M56 12V8" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="16" y="18" width="14" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" />
-          <rect x="36" y="18" width="20" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" />
-        </svg>
-      );
-  }
-}
+const PRODUCT_IMAGES_BY_SKU = Object.fromEntries(
+  DEFAULT_CATALOG.map((item) => [item.sku, item.image])
+);
+
+const PROMO_RATES = {
+  PULSE10: 0.1,
+  SRE15: 0.15,
+  DEV20: 0.2,
+};
 
 export default function App() {
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [telemetry, setTelemetry] = useState(null);
-  const [faults, setFaults] = useState(null);
+  const [products, setProducts] = useState(DEFAULT_CATALOG);
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [cart, setCart] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cart, setCart] = useState([
+    {
+      sku: "PS-KB-01",
+      name: "Keychron Q1 Pro Wireless Mechanical Keyboard",
+      unitPrice: 199.0,
+      quantity: 1,
+    },
+  ]);
+
+  // Checkout Step: "bag" | "payment" | "receipt"
+  const [checkoutStep, setCheckoutStep] = useState("bag");
+  const [fullName, setFullName] = useState("Aarav Mehta");
+  const [customerEmail, setCustomerEmail] = useState("aarav.mehta@gmail.com");
+  const [shippingAddress, setShippingAddress] = useState("42 Indiranagar 100 Feet Rd, Bengaluru");
+  const [cardNumber, setCardNumber] = useState("4532 •••• •••• 4242");
+  const [cardExpiry, setCardExpiry] = useState("08/29");
+  const [cardCvc, setCardCvc] = useState("842");
   const [promoCode, setPromoCode] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("sre.demo@pulseshop.io");
   const [busy, setBusy] = useState(false);
-  const [banner, setBanner] = useState(null);
+  const [checkoutError, setCheckoutError] = useState(null);
+  const [lastReceipt, setLastReceipt] = useState(null);
+  const [notice, setNotice] = useState(null);
 
-  const cartDialogRef = useRef(null);
-  const chaosDialogRef = useRef(null);
+  const checkoutDialogRef = useRef(null);
 
-  // Attach modern-web-guidance light-dismiss fallback for browsers without native HTMLDialogElement.prototype.closedBy
+  // Light-dismiss fallback for browsers without native HTMLDialogElement.prototype.closedBy
   useEffect(() => {
-    const dialogs = [cartDialogRef.current, chaosDialogRef.current].filter(Boolean);
-    if ("closedBy" in HTMLDialogElement.prototype) return;
+    const dialog = checkoutDialogRef.current;
+    if (!dialog || "closedBy" in HTMLDialogElement.prototype) return;
 
-    const cleanups = dialogs.map((dialog) => {
-      const handleClick = (event) => {
-        if (event.target !== dialog) return;
-        const rect = dialog.getBoundingClientRect();
-        const isDialogContent =
-          rect.top <= event.clientY &&
-          event.clientY <= rect.top + rect.height &&
-          rect.left <= event.clientX &&
-          event.clientX <= rect.left + rect.width;
-        if (isDialogContent) return;
-        dialog.close();
-      };
-      dialog.addEventListener("click", handleClick);
-      return () => dialog.removeEventListener("click", handleClick);
-    });
-
-    return () => cleanups.forEach((fn) => fn());
+    const handleClick = (event) => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      const isInside =
+        rect.top <= event.clientY &&
+        event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX &&
+        event.clientX <= rect.left + rect.width;
+      if (isInside) return;
+      dialog.close();
+    };
+    dialog.addEventListener("click", handleClick);
+    return () => dialog.removeEventListener("click", handleClick);
   }, []);
 
-  async function refreshAll() {
+  async function fetchProducts() {
     try {
-      const [prodRes, ordRes, telRes, logRes, faultRes] = await Promise.all([
-        fetch("/api/products"),
-        fetch("/api/orders?limit=10"),
-        fetch("/api/telemetry"),
-        fetch("/api/logs"),
-        fetch("/api/faults"),
-      ]);
-
+      const prodRes = await fetch("/api/products");
       if (prodRes.ok) {
         const pData = await prodRes.json();
-        setProducts(pData.products || []);
+        if (Array.isArray(pData.products) && pData.products.length > 0) {
+          setProducts(
+            pData.products.map((p, idx) => ({
+              ...DEFAULT_CATALOG[idx % DEFAULT_CATALOG.length],
+              ...p,
+              image: PRODUCT_IMAGES_BY_SKU[p.sku] || DEFAULT_CATALOG[idx % DEFAULT_CATALOG.length].image,
+            }))
+          );
+        }
       }
-      if (ordRes.ok) {
-        const oData = await ordRes.json();
-        setOrders(oData.orders || []);
-      }
-      if (telRes.ok) {
-        setTelemetry(await telRes.json());
-      }
-      if (logRes.ok) {
-        const lData = await logRes.json();
-        setLogs(lData.logs || []);
-      }
-      if (faultRes.ok) {
-        setFaults(await faultRes.json());
-      }
-    } catch (_err) {
-      // keep existing UI state if backend is momentarily restarting
+    } catch (_e) {
+      // Fallback catalog stays active
     }
   }
 
   useEffect(() => {
-    refreshAll();
-    const interval = setInterval(refreshAll, 3000);
-    return () => clearInterval(interval);
+    fetchProducts();
   }, []);
 
-  function addToCart(product) {
+  function addToBag(product, openImmediately = false) {
     setCart((prev) => {
-      const existing = prev.find((i) => i.sku === product.sku);
-      if (existing) {
-        return prev.map((i) => (i.sku === product.sku ? { ...i, quantity: i.quantity + 1 } : i));
+      const found = prev.find((item) => item.sku === product.sku);
+      if (found) {
+        return prev.map((item) =>
+          item.sku === product.sku ? { ...item, quantity: item.quantity + 1 } : item
+        );
       }
       return [
         ...prev,
@@ -202,401 +178,307 @@ export default function App() {
         },
       ];
     });
+
+    setCheckoutError(null);
+    if (openImmediately) {
+      setCheckoutStep("payment");
+      checkoutDialogRef.current?.showModal();
+    } else {
+      setNotice({
+        type: "ok",
+        title: `Added ${product.name} to your bag`,
+        message: "Click Shopping Bag in the top bar whenever you are ready to checkout.",
+      });
+    }
   }
 
-  async function executeCheckout(itemsToBuy, customPromo = promoCode) {
+  function updateQuantity(sku, delta) {
+    setCart((prev) =>
+      prev
+        .map((item) =>
+          item.sku === sku ? { ...item, quantity: item.quantity + delta } : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  }
+
+  async function submitPayment(e) {
+    e.preventDefault();
+    if (cart.length === 0) return;
+
     setBusy(true);
-    setBanner(null);
+    setCheckoutError(null);
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerEmail,
-          items: itemsToBuy,
-          promoCode: customPromo ? customPromo.trim() : null,
+          items: cart,
+          promoCode: promoCode ? promoCode.trim() : null,
+          paymentMethod: "card_visa_4242",
         }),
       });
       const data = await res.json();
 
       if (!res.ok) {
-        setBanner({
-          type: "err",
-          title: `Checkout Failed (${res.status} ${data.error || "Error"}) in ${data.service || "service"}`,
-          message: data.message || "Unexpected checkout failure. Inspect the stack trace below or open a fix PR.",
-          topFrame: data.topFrame,
-          commit: data.commit,
-        });
-      } else if (data.order && data.order.persisted === false) {
-        setBanner({
-          type: "warn",
-          title: `HTTP 201 Returned — Order ${data.order.orderId} Unpersisted`,
-          message:
-            "HTTP 201 Created returned with zero 5xx logs, but database persistence was skipped (silent business metric drop).",
-        });
-        setCart([]);
-      } else {
-        setBanner({
-          type: "ok",
-          title: `Order Confirmed — ${data.order.orderId}`,
-          message: `Authorized payment ${data.payment.paymentId} for $${data.order.totalAmount.toFixed(2)} via orders-${data.order.serviceVersion}.`,
-        });
-        setCart([]);
+        setCheckoutError(
+          "We couldn't process your order right now. Please try again in a moment."
+        );
+        return;
       }
-    } catch (err) {
-      setBanner({
-        type: "err",
-        title: "Gateway Service Unreachable",
-        message: `${err.message}. Verify that the gateway container is running or run reset.sh.`,
+
+      setLastReceipt({
+        orderId: data.order.orderId,
+        paymentId: data.payment.paymentId,
+        totalAmount: data.order.totalAmount,
+        items: cart,
+        customerEmail,
+        shippingAddress,
       });
-    } finally {
-      setBusy(false);
-      await refreshAll();
-    }
-  }
-
-  async function triggerFaultPreset(preset) {
-    setBusy(true);
-    try {
-      await fetch("/api/faults", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          target: preset.target,
-          mode: preset.mode,
-          latencyMs: preset.latencyMs || 0,
-        }),
-      });
-      await refreshAll();
+      setCart([]);
+      setCheckoutStep("receipt");
+      await fetchProducts();
+    } catch (_err) {
+      setCheckoutError(
+        "Unable to reach payment gateway. Please check your connection and try again."
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  async function fireTrafficBurst(count = 5) {
-    setBusy(true);
-    try {
-      const sampleProduct = products[0] || {
-        sku: "PS-KB-01",
-        name: "Keychron Q1 Pro Wireless Custom Mechanical Keyboard",
-        price: 199.0,
-      };
-      for (let i = 0; i < count; i++) {
-        await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customerEmail: `load.user.${i + 1}@pulseshop.io`,
-            items: [
-              {
-                sku: sampleProduct.sku,
-                name: sampleProduct.name,
-                unitPrice: sampleProduct.price,
-                quantity: 1,
-              },
-            ],
-          }),
-        });
-      }
-      await refreshAll();
-    } finally {
-      setBusy(false);
-    }
-  }
+  const visibleProducts = products.filter((product) => {
+    const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+    const matchesSearch =
+      !searchQuery.trim() ||
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-  const filteredProducts =
-    selectedCategory === "All"
-      ? products
-      : products.filter((p) => p.category === selectedCategory);
-
-  const ordersMode = faults?.orders?.mode || "healthy";
-  const paymentsMode = faults?.payments?.mode || "healthy";
-  const systemHealthy = ordersMode === "healthy" && paymentsMode === "healthy";
-  const activeFaultName = ordersMode !== "healthy" ? ordersMode : paymentsMode;
-
-  const gwMetrics = telemetry?.gateway || {};
-  const ordMetrics = telemetry?.orders || {};
-  const cartTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const bagCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+  const bagSubtotal = cart.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+  const normalizedPromo = promoCode.trim().toUpperCase();
+  const discountRate = PROMO_RATES[normalizedPromo] || 0;
+  const discountAmount = Number((bagSubtotal * discountRate).toFixed(2));
+  const bagTotal = Number(Math.max(0, bagSubtotal - discountAmount).toFixed(2));
+  const heroProduct = products[0] || DEFAULT_CATALOG[0];
 
   return (
     <div>
-      {/* Top Live Telemetry & Release Strip */}
-      <div className="telemetry-strip">
-        <div className="telemetry-cluster">
-          <span className="telemetry-stat">
-            <span className={`status-indicator ${systemHealthy ? "ok" : "err"}`} />
-            <span className="telemetry-label">STATUS</span>
-            <span className={`telemetry-value ${systemHealthy ? "tone-ok" : "tone-err"}`}>
-              {systemHealthy ? "HEALTHY" : `FAULT (${activeFaultName})`}
-            </span>
-          </span>
-
-          <span className="telemetry-stat">
-            <span className="telemetry-label">RELEASE</span>
-            <span className="telemetry-value">
-              orders-{ordMetrics.version || "v1"} @ {(ordMetrics.commit || "HEAD").slice(0, 7)}
-            </span>
-          </span>
-
-          <span className="telemetry-stat">
-            <span className="telemetry-label">5XX RATE</span>
-            <span
-              className={`telemetry-value ${(ordMetrics.errorRatePct || 0) > 5 ? "tone-err" : "tone-ok"}`}
-            >
-              {ordMetrics.errorRatePct ?? 0}%
-            </span>
-          </span>
-
-          <span className="telemetry-stat">
-            <span className="telemetry-label">P95 LATENCY</span>
-            <span
-              className={`telemetry-value ${(ordMetrics.p95LatencyMs || 12) > 400 ? "tone-warn" : ""}`}
-            >
-              {ordMetrics.p95LatencyMs ?? 12.0} ms
-            </span>
-          </span>
-
-          <span className="telemetry-stat">
-            <span className="telemetry-label">ORDERS/MIN</span>
-            <span className="telemetry-value tone-ok">{ordMetrics.ordersCreatedPerMin ?? 0}</span>
-          </span>
-
-          <span className="telemetry-stat">
-            <span className="telemetry-label">REQ/MIN</span>
-            <span className="telemetry-value">{gwMetrics.requestsPerMin ?? 0}</span>
-          </span>
-        </div>
-
-        <div className="telemetry-actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => fireTrafficBurst(5)}
-            disabled={busy}
-          >
-            Run 5 Checkouts
-          </button>
-          <button
-            type="button"
-            className={`btn ${systemHealthy ? "" : "btn-danger"}`}
-            onClick={() => chaosDialogRef.current?.showModal()}
-          >
-            SRE Fault Lab
-          </button>
-        </div>
+      {/* Top Store Promo Announcement Bar */}
+      <div className="promo-bar">
+        <span>Free express shipping on all studio & desk gear over $150</span>
+        <span className="promo-code-chip">USE CODE: PULSE10 FOR 10% OFF</span>
       </div>
 
-      {/* Main Storefront Header */}
-      <header className="store-header">
-        <div className="brand-group">
-          <div className="brand-row">
-            <h1 className="brand-mark">PulseShop</h1>
-            <span className={`tag ${systemHealthy ? "ok" : "err"}`}>
-              {systemHealthy ? "v1.0.0" : activeFaultName}
-            </span>
+      {/* Storefront Navigation Header */}
+      <div className="navbar-wrap">
+        <header className="navbar">
+          <a href="#top" className="brand-logo">
+            <span className="brand-dot" />
+            <span>PulseShop</span>
+          </a>
+
+          <div className="search-box">
+            <input
+              type="search"
+              className="search-input"
+              placeholder="Search mechanical keyboards, monitors, docks, audio..."
+              aria-label="Search store catalog"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <p className="brand-summary">
-            Precision developer workstations, mechanical input hardware, and studio audio interfaces.
-          </p>
-        </div>
 
-        <div className="header-controls">
-          <a href="/metrics" target="_blank" rel="noreferrer" className="btn mono-num">
-            /metrics
-          </a>
-          <a href="/api/health" target="_blank" rel="noreferrer" className="btn mono-num">
-            /api/health
-          </a>
-          <button
-            type="button"
-            className="btn btn-accent"
-            onClick={() => cartDialogRef.current?.showModal()}
-          >
-            <span>Cart</span>
-            <span className="mono-num">
-              ({cartCount} / ${cartTotal.toFixed(0)})
-            </span>
-          </button>
-        </div>
-      </header>
-
-      <main className="workspace-shell">
-        {/* Live Checkout Result / Stack Trace Alert Banner */}
-        {banner && (
-          <div className={`feedback-banner ${banner.type}`} role="status">
-            <div className="feedback-copy">
-              <span className="feedback-title">{banner.title}</span>
-              <span className="feedback-detail">{banner.message}</span>
-              {banner.topFrame && (
-                <div className="feedback-trace">
-                  Stack Frame: {banner.topFrame.file}:{banner.topFrame.line}:{banner.topFrame.column} (
-                  {banner.topFrame.function}) — Commit: {banner.commit || "HEAD"}
-                </div>
-              )}
-            </div>
-            <button type="button" className="btn" onClick={() => setBanner(null)}>
-              Dismiss
+          <div className="nav-actions">
+            <button
+              type="button"
+              className="btn btn-dark"
+              onClick={() => {
+                setCheckoutError(null);
+                setCheckoutStep("bag");
+                checkoutDialogRef.current?.showModal();
+              }}
+            >
+              <span>Shopping Bag</span>
+              <span className="mono-num">
+                ({bagCount} / ${bagTotal.toFixed(0)})
+              </span>
             </button>
+          </div>
+        </header>
+      </div>
+
+      {/* Hero Showcase Banner */}
+      <section className="hero-section">
+        <div className="hero-banner">
+          <div>
+            <h1 className="hero-headline">
+              Precision hardware built for engineers and creators.
+            </h1>
+            <p className="hero-copy">
+              CNC-machined wireless keyboards, calibrated OLED displays, Thunderbolt 4 workstation docks, and planar magnetic studio audio.
+            </p>
+            <div className="hero-cta-row">
+              <button
+                type="button"
+                className="btn btn-light"
+                onClick={() => addToBag(heroProduct, true)}
+                disabled={busy}
+              >
+                Buy Featured Q1 Pro — ${heroProduct.price.toFixed(0)}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => addToBag(heroProduct, false)}
+                disabled={busy}
+              >
+                Add to Bag
+              </button>
+            </div>
+          </div>
+
+          <div className="hero-feature-card">
+            <img
+              src={heroProduct.image}
+              alt={heroProduct.name}
+              className="hero-feature-img"
+            />
+            <div>
+              <span className="promo-code-chip">FEATURED RELEASE</span>
+              <h2 className="hero-feature-title">{heroProduct.name}</h2>
+              <div className="hero-feature-price">${heroProduct.price.toFixed(2)} — In Stock</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Shopping Catalog */}
+      <main className="store-main">
+        {notice && (
+          <div className={`notice-banner ${notice.type}`} role="status">
+            <div className="notice-content">
+              <span className="notice-title">{notice.title}</span>
+              <span className="notice-desc">{notice.message}</span>
+            </div>
+            <div className="nav-actions">
+              <button
+                type="button"
+                className="btn btn-dark"
+                onClick={() => {
+                  setNotice(null);
+                  setCheckoutStep("bag");
+                  checkoutDialogRef.current?.showModal();
+                }}
+              >
+                View Bag & Checkout
+              </button>
+              <button type="button" className="btn" onClick={() => setNotice(null)}>
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Catalog Filter Toolbar */}
-        <div className="catalog-toolbar">
-          <div className="filter-pills" role="tablist" aria-label="Hardware Categories">
+        {/* Category Filter Pills */}
+        <div className="category-bar">
+          <div className="category-list" role="tablist" aria-label="Product Categories">
             {CATEGORIES.map((category) => (
               <button
                 key={category}
                 type="button"
                 role="tab"
                 aria-selected={selectedCategory === category}
-                className={`filter-btn ${selectedCategory === category ? "active" : ""}`}
+                className={`cat-pill ${selectedCategory === category ? "active" : ""}`}
                 onClick={() => setSelectedCategory(category)}
               >
                 {category}
               </button>
             ))}
           </div>
-
-          <div className="promo-hint">
-            <span>Codes:</span>
-            <strong>PULSE10</strong>
-            <strong>SRE15</strong>
-            <strong>DEV20</strong>
-          </div>
+          <span className="results-count">
+            Showing {visibleProducts.length} products
+          </span>
         </div>
 
-        {/* Architectural Hardware Catalog Matrix */}
-        <section className="catalog-matrix" aria-label="Hardware Catalog">
-          {filteredProducts.map((product) => (
-            <article key={product.sku} className="hardware-cell">
+        {/* Product Grid */}
+        <section className="product-grid" aria-label="Products">
+          {visibleProducts.map((product) => (
+            <article key={product.sku} className="product-card">
               <div>
-                <div className="hardware-top">
-                  <span className="hardware-sku">{product.sku}</span>
-                  <span className="tag ok">{product.stock} in stock</span>
+                <div className="product-img-wrap">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="product-img"
+                    loading="lazy"
+                  />
+                  {product.badge && <span className="product-badge">{product.badge}</span>}
                 </div>
-                <div className="hardware-visual">
-                  <HardwareSchematic category={product.category} />
+
+                <div className="product-body">
+                  <div className="product-cat-row">
+                    <span>{product.category}</span>
+                    <span className="product-rating">Rating {product.rating || 4.9}/5</span>
+                  </div>
+                  <h2 className="product-name">{product.name}</h2>
+                  <p className="product-desc">{product.description}</p>
                 </div>
-                <h2 className="hardware-name">{product.name}</h2>
-                <p className="hardware-spec">{product.description}</p>
               </div>
 
-              <div className="hardware-bottom">
-                <span className="hardware-price">${product.price.toFixed(2)}</span>
-                <div className="hardware-actions">
+              <div className="product-footer">
+                <div className="price-stock-row">
+                  <span className="product-price">${product.price.toFixed(2)}</span>
+                  <span className="stock-status">{product.stock} in stock</span>
+                </div>
+
+                <div className="card-btn-row">
                   <button
                     type="button"
                     className="btn"
-                    onClick={() => addToCart(product)}
+                    onClick={() => addToBag(product, false)}
                     disabled={busy}
                   >
-                    Add to Cart
+                    Add to Bag
                   </button>
                   <button
                     type="button"
-                    className="btn btn-primary"
-                    onClick={() =>
-                      executeCheckout([
-                        {
-                          sku: product.sku,
-                          name: product.name,
-                          unitPrice: product.price,
-                          quantity: 1,
-                        },
-                      ])
-                    }
+                    className="btn btn-dark"
+                    onClick={() => addToBag(product, true)}
                     disabled={busy}
                   >
-                    1-Click Buy
+                    Buy Now
                   </button>
                 </div>
               </div>
             </article>
           ))}
         </section>
-
-        {/* Open Hairline Ledgers: Live Orders + Structured JSON Telemetry Stream */}
-        <section className="ledger-grid">
-          <div className="ledger-section">
-            <div className="ledger-header">
-              <h2 className="ledger-title">Persisted Orders Ledger</h2>
-              <span className="tag">{orders.length} records</span>
-            </div>
-
-            <div className="table-scroll">
-              <table className="ledger-table">
-                <thead>
-                  <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Total</th>
-                    <th>Payment</th>
-                    <th>Service</th>
-                    <th>State</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((ord) => (
-                    <tr key={ord.orderId}>
-                      <td className="mono-num">{ord.orderId}</td>
-                      <td>{ord.customerEmail}</td>
-                      <td className="mono-num">${Number(ord.totalAmount || 0).toFixed(2)}</td>
-                      <td className="mono-num">{ord.paymentId}</td>
-                      <td className="mono-num">orders-{ord.serviceVersion || "v1"}</td>
-                      <td>
-                        <span className="tag ok">{ord.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="ledger-section">
-            <div className="ledger-header">
-              <h2 className="ledger-title">Structured JSON Telemetry Stream</h2>
-              <span className="tag">GET /api/logs</span>
-            </div>
-
-            <div className="stream-list">
-              {logs.length === 0 ? (
-                <div className="stream-row">
-                  <span className="stream-msg">
-                    No unhandled exceptions logged. Microservices operating within SLO.
-                  </span>
-                </div>
-              ) : (
-                logs.slice(0, 12).map((entry, idx) => (
-                  <div key={`${entry.timestamp}-${idx}`} className="stream-row">
-                    <div className="stream-meta">
-                      <span className={`stream-service ${entry.level}`}>
-                        [{entry.level.toUpperCase()}] {entry.service} ({entry.version})
-                      </span>
-                      <span className="stream-time">
-                        {new Date(entry.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <div className="stream-msg">{entry.message}</div>
-                    {entry.topFrame && (
-                      <div className="stream-frame">
-                        Frame: {entry.topFrame.file}:{entry.topFrame.line} ({entry.topFrame.function})
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
       </main>
 
-      {/* Native Modal Dialog 1: Cart & Checkout */}
-      <dialog ref={cartDialogRef} closedby="any" aria-labelledby="cart-dialog-title">
-        <div className="dialog-header">
-          <h2 id="cart-dialog-title" className="dialog-title">
-            Checkout Cart ({cartCount})
+      {/* Clean Customer Store Footer */}
+      <footer className="store-footer">
+        <div className="footer-inner">
+          <div>
+            <strong>PulseShop</strong> — Official Hardware & Studio Peripherals Store
+          </div>
+          <div>
+            2-Year Warranty · Free Express Shipping · 30-Day Returns
+          </div>
+        </div>
+      </footer>
+
+      {/* Multi-Step Shopping Bag -> Shipping & Payment -> Order Confirmation Dialog */}
+      <dialog ref={checkoutDialogRef} closedby="any" aria-labelledby="checkout-modal-title">
+        <div className="modal-top">
+          <h2 id="checkout-modal-title" className="modal-title">
+            {checkoutStep === "bag" && `Shopping Bag (${bagCount})`}
+            {checkoutStep === "payment" && "Shipping & Payment"}
+            {checkoutStep === "receipt" && "Order Confirmed"}
           </h2>
           <form method="dialog">
             <button type="submit" className="btn">
@@ -605,126 +487,241 @@ export default function App() {
           </form>
         </div>
 
-        {cart.length === 0 ? (
-          <p className="dialog-lead">
-            Your cart is empty. Add any hardware item from the catalog or use 1-Click Buy.
-          </p>
-        ) : (
-          <div className="cart-list">
-            {cart.map((item) => (
-              <div key={item.sku} className="cart-row">
-                <div>
-                  <div className="cart-item-title">{item.name}</div>
-                  <div className="cart-item-meta">
-                    {item.sku} — Qty {item.quantity} x ${item.unitPrice.toFixed(2)}
-                  </div>
-                </div>
-                <div className="mono-num">${(item.unitPrice * item.quantity).toFixed(2)}</div>
-              </div>
-            ))}
-
-            <div className="form-split">
+        {/* STEP 1: SHOPPING BAG */}
+        {checkoutStep === "bag" && (
+          <div>
+            {cart.length === 0 ? (
+              <p className="product-desc">
+                Your shopping bag is empty. Browse our catalog and add items to checkout.
+              </p>
+            ) : (
               <div>
-                <label htmlFor="checkout-email" className="field-label">
-                  Customer Email
+                <div className="bag-items">
+                  {cart.map((item) => (
+                    <div key={item.sku} className="bag-row">
+                      <div>
+                        <div className="bag-item-name">{item.name}</div>
+                        <div className="bag-item-sub mono-num">
+                          ${item.unitPrice.toFixed(2)} each
+                        </div>
+                      </div>
+                      <div className="nav-actions">
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => updateQuantity(item.sku, -1)}
+                        >
+                          -
+                        </button>
+                        <span className="mono-num">{item.quantity}</span>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => updateQuantity(item.sku, 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bag-summary">
+                  <span className="bag-total">Subtotal: ${bagSubtotal.toFixed(2)}</span>
+                  <button
+                    type="button"
+                    className="btn btn-dark"
+                    onClick={() => {
+                      setCheckoutError(null);
+                      setCheckoutStep("payment");
+                    }}
+                  >
+                    Proceed to Checkout
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STEP 2: SHIPPING & CARD PAYMENT */}
+        {checkoutStep === "payment" && (
+          <form onSubmit={submitPayment}>
+            {checkoutError && (
+              <div className="notice-banner err" role="alert">
+                <div className="notice-content">
+                  <span className="notice-title">Payment / Checkout Error</span>
+                  <span className="notice-desc">{checkoutError}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="checkout-form-grid">
+              <div>
+                <label htmlFor="ship-name" className="input-label">
+                  Full Name
                 </label>
                 <input
-                  id="checkout-email"
+                  id="ship-name"
+                  type="text"
+                  required
+                  className="text-input"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="ship-email" className="input-label">
+                  Email Address
+                </label>
+                <input
+                  id="ship-email"
                   type="email"
-                  className="field-input"
+                  required
+                  className="text-input"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="field-block">
+              <label htmlFor="ship-addr" className="input-label">
+                Delivery Address
+              </label>
+              <input
+                id="ship-addr"
+                type="text"
+                required
+                className="text-input"
+                value={shippingAddress}
+                onChange={(e) => setShippingAddress(e.target.value)}
+              />
+            </div>
+
+            <div className="field-block">
+              <label htmlFor="card-num" className="input-label">
+                Card Number
+              </label>
+              <input
+                id="card-num"
+                type="text"
+                required
+                className="text-input mono-num"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+              />
+            </div>
+
+            <div className="checkout-form-grid">
               <div>
-                <label htmlFor="checkout-promo" className="field-label">
-                  Promo Code
+                <label htmlFor="card-exp" className="input-label">
+                  Expiry Date
                 </label>
                 <input
-                  id="checkout-promo"
+                  id="card-exp"
                   type="text"
-                  placeholder="PULSE10"
-                  className="field-input mono-num"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
+                  required
+                  className="text-input mono-num"
+                  value={cardExpiry}
+                  onChange={(e) => setCardExpiry(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="card-cvc" className="input-label">
+                  Security Code (CVC)
+                </label>
+                <input
+                  id="card-cvc"
+                  type="text"
+                  required
+                  className="text-input mono-num"
+                  value={cardCvc}
+                  onChange={(e) => setCardCvc(e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="dialog-footer">
-              <span className="dialog-total">Total: ${cartTotal.toFixed(2)}</span>
-              <div className="hardware-actions">
-                <button type="button" className="btn" onClick={() => setCart([])}>
-                  Clear Cart
-                </button>
+            <div className="field-block">
+              <label htmlFor="bag-promo" className="input-label">
+                Promo Code (Optional)
+              </label>
+              <input
+                id="bag-promo"
+                type="text"
+                placeholder="PULSE10"
+                className="text-input mono-num"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+              />
+            </div>
+
+            <div className="bag-summary">
+              <div>
+                <div className="bag-item-sub">
+                  Shipping: Free {discountAmount > 0 ? `(Saved $${discountAmount.toFixed(2)})` : ""}
+                </div>
+                <div className="bag-total">Total: ${bagTotal.toFixed(2)}</div>
+              </div>
+              <div className="nav-actions">
                 <button
                   type="button"
-                  className="btn btn-accent"
+                  className="btn"
+                  onClick={() => setCheckoutStep("bag")}
                   disabled={busy}
-                  onClick={async () => {
-                    await executeCheckout(cart, promoCode);
-                    cartDialogRef.current?.close();
-                  }}
                 >
-                  Authorize & Place Order
+                  Back
+                </button>
+                <button type="submit" className="btn btn-green" disabled={busy}>
+                  {busy ? "Processing..." : `Pay $${bagTotal.toFixed(2)}`}
                 </button>
               </div>
             </div>
+          </form>
+        )}
+
+        {/* STEP 3: ORDER CONFIRMATION RECEIPT */}
+        {checkoutStep === "receipt" && lastReceipt && (
+          <div className="receipt-box">
+            <div className="notice-banner ok">
+              <div className="notice-content">
+                <span className="notice-title">
+                  Thank you, {fullName}! Your order is confirmed.
+                </span>
+                <span className="notice-desc">
+                  Order #{lastReceipt.orderId} · Payment Reference {lastReceipt.paymentId}
+                </span>
+              </div>
+            </div>
+
+            <div className="bag-items">
+              {lastReceipt.items.map((item) => (
+                <div key={item.sku} className="bag-row">
+                  <div>
+                    <div className="bag-item-name">{item.name}</div>
+                    <div className="bag-item-sub">Qty {item.quantity}</div>
+                  </div>
+                  <div className="mono-num">
+                    ${(item.unitPrice * item.quantity).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bag-summary">
+              <span className="bag-total">
+                Paid: ${Number(lastReceipt.totalAmount || 0).toFixed(2)}
+              </span>
+              <button
+                type="button"
+                className="btn btn-dark"
+                onClick={() => checkoutDialogRef.current?.close()}
+              >
+                Continue Shopping
+              </button>
+            </div>
           </div>
         )}
-      </dialog>
-
-      {/* Native Modal Dialog 2: SRE Fault & Judge Chaos Lab */}
-      <dialog ref={chaosDialogRef} closedby="any" aria-labelledby="chaos-dialog-title">
-        <div className="dialog-header">
-          <h2 id="chaos-dialog-title" className="dialog-title">
-            SRE Fault & Judge Live-Break Lab
-          </h2>
-          <form method="dialog">
-            <button type="submit" className="btn">
-              Close
-            </button>
-          </form>
-        </div>
-
-        <p className="dialog-lead">
-          Trigger any CORE 1 or CORE 2 fault scenario live or restore the baseline in one click.
-        </p>
-
-        <div className="preset-list">
-          {FAULT_PRESETS.map((preset) => {
-            const isActive =
-              (preset.target === "reset-all" && systemHealthy) ||
-              (preset.target === "orders" && ordersMode === preset.mode) ||
-              (preset.target === "payments" && paymentsMode === preset.mode);
-
-            return (
-              <div key={preset.id} className="preset-row">
-                <div>
-                  <div className="preset-title-row">
-                    <span>{preset.label}</span>
-                    {isActive && <span className="tag ok">ACTIVE</span>}
-                  </div>
-                  <div className="preset-desc">{preset.description}</div>
-                </div>
-                <button
-                  type="button"
-                  className={`btn ${
-                    preset.tone === "err"
-                      ? "btn-danger"
-                      : preset.tone === "ok"
-                        ? "btn-accent"
-                        : ""
-                  }`}
-                  disabled={busy}
-                  onClick={() => triggerFaultPreset(preset)}
-                >
-                  {preset.target === "reset-all" ? "Restore" : "Inject"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
       </dialog>
     </div>
   );
