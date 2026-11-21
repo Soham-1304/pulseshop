@@ -51,7 +51,7 @@ function pushIncidentBundleNonBlocking(serviceName, rule, entry) {
 
   try {
     const signal = typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined;
-    fetch(url, {
+    return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -59,6 +59,7 @@ function pushIncidentBundleNonBlocking(serviceName, rule, entry) {
     }).catch(() => {});
   } catch (_err) {
     // Non-blocking reporter: never interrupt application request flow
+    return undefined;
   }
 }
 
@@ -66,7 +67,7 @@ function pushIncidentBundleNonBlocking(serviceName, rule, entry) {
  * Parses a V8 Error stack trace and extracts the top application stack frame
  * relative to the repository root so git blame can pinpoint the exact file & line.
  */
-function extractTopStackFrame(stack) {
+function extractTopStackFrame(stack, serviceName) {
   if (!stack || typeof stack !== "string") return null;
   const lines = stack.split("\n").slice(1);
 
@@ -98,10 +99,17 @@ function extractTopStackFrame(stack) {
       continue;
     }
 
-    // Normalize path relative to pulseshop repo root
+    // Normalize path relative to pulseshop repo root (handles both Docker and Vercel /var/task/src/...)
     const repoMarker = "services/";
     const idx = filePath.indexOf(repoMarker);
-    const relativeFile = idx !== -1 ? filePath.slice(idx) : path.basename(filePath);
+    let relativeFile;
+    if (idx !== -1) {
+      relativeFile = filePath.slice(idx);
+    } else if (filePath.includes("/src/") && serviceName) {
+      relativeFile = `services/${serviceName}/${filePath.slice(filePath.indexOf("/src/") + 1)}`;
+    } else {
+      relativeFile = path.basename(filePath);
+    }
 
     return {
       function: fnName,
@@ -132,17 +140,18 @@ function createLogger(serviceName) {
       entry.message = meta.error.message || message;
       entry.errorName = meta.error.name || "Error";
       entry.stack = meta.error.stack;
-      entry.topFrame = extractTopStackFrame(meta.error.stack);
+      entry.topFrame = extractTopStackFrame(meta.error.stack, serviceName);
       delete entry.error;
     } else if (typeof meta.stack === "string") {
-      entry.topFrame = extractTopStackFrame(meta.stack);
+      entry.topFrame = extractTopStackFrame(meta.stack, serviceName);
     }
 
     logBuffer.unshift(entry);
     pruneLogBuffer();
 
+    let pushPromise;
     if (level === "error" && entry.topFrame) {
-      pushIncidentBundleNonBlocking(serviceName, "ERR_5XX_SPIKE", entry);
+      pushPromise = pushIncidentBundleNonBlocking(serviceName, "ERR_5XX_SPIKE", entry);
     }
 
     const serialized = JSON.stringify(entry);
@@ -150,6 +159,10 @@ function createLogger(serviceName) {
       process.stderr.write(serialized + "\n");
     } else {
       process.stdout.write(serialized + "\n");
+    }
+
+    if (pushPromise) {
+      Object.defineProperty(entry, "_pushPromise", { value: pushPromise, enumerable: false });
     }
 
     return entry;

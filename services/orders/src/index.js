@@ -49,7 +49,7 @@ function createOrdersApp() {
 
   app.use("/", ordersRouter);
 
-  app.use((err, req, res, _next) => {
+  app.use(async (err, req, res, _next) => {
     const status = err.statusCode || 500;
     const logEntry = logger.error(err.message || "Unhandled error in orders service", {
       error: err,
@@ -57,6 +57,13 @@ function createOrdersApp() {
       route: req.originalUrl,
       status,
     });
+
+    if (logEntry && logEntry._pushPromise) {
+      await Promise.race([
+        logEntry._pushPromise,
+        new Promise((resolve) => setTimeout(resolve, 2500)),
+      ]).catch(() => {});
+    }
 
     res.status(status).json({
       error: err.name || "InternalServerError",
