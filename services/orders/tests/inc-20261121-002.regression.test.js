@@ -1,0 +1,1 @@
+test('calculatePromoDiscount handles undefined discountMeta safely', () => { const result = calculatePromoDiscount(100, null, undefined); assert.strictEqual(result, 0); });
