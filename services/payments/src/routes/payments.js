@@ -2,7 +2,7 @@ const express = require("express");
 const {
   createPaymentRecord,
   recordPayment,
-} = require("../../../shared");
+} = require("../shared");
 
 const router = express.Router();
 

@@ -7,7 +7,7 @@ const {
   listOrders,
   recordOrderCreated,
   recordOrderFailed,
-} = require("../../../shared");
+} = require("../shared");
 
 const router = express.Router();
 

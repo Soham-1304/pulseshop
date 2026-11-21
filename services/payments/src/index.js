@@ -7,7 +7,7 @@ const {
   getTelemetrySummary,
   connectDB,
   getDbStatus,
-} = require("../../shared");
+} = require("./shared");
 const { paymentsRouter } = require("./routes/payments");
 
 const SERVICE_NAME = "payments";

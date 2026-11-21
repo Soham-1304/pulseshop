@@ -7,15 +7,12 @@ const {
   getTelemetrySummary,
   connectDB,
   getDbStatus,
-  invokeExpressApp,
-} = require("../../shared");
-const { createOrdersApp } = require("../../orders/src/index");
-const { createPaymentsApp } = require("../../payments/src/index");
+} = require("./shared");
 
 const SERVICE_NAME = "gateway";
 const logger = createLogger(SERVICE_NAME);
 
-async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 4500) {
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 6000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -40,34 +37,15 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 4500) {
   }
 }
 
-function createGatewayApp(options = {}) {
-  const inProcess =
-    options.inProcess !== undefined
-      ? options.inProcess
-      : process.env.IN_PROCESS_SERVICES === "true" || Boolean(process.env.VERCEL);
-
+function createGatewayApp() {
   const app = express();
   app.use(cors());
   app.use(express.json());
   app.use(createTelemetryMiddleware(SERVICE_NAME));
 
-  let localOrdersApp = null;
-  let localPaymentsApp = null;
-  if (inProcess) {
-    localOrdersApp = createOrdersApp();
-    localPaymentsApp = createPaymentsApp();
-    app.use("/_internal/orders", localOrdersApp);
-    app.use("/_internal/payments", localPaymentsApp);
-  }
-
   async function callService(service, method, path, body = null) {
-    if (inProcess) {
-      const targetApp = service === "orders" ? localOrdersApp : localPaymentsApp;
-      return invokeExpressApp(targetApp, method, path, body);
-    }
-
     if (service === "orders") {
-      const ordersUrl = process.env.ORDERS_SERVICE_URL || "http://127.0.0.1:4001";
+      const ordersUrl = (process.env.ORDERS_SERVICE_URL || "http://127.0.0.1:4001").replace(/\/$/, "");
       try {
         return await fetchJsonWithTimeout(`${ordersUrl}${path}`, {
           method,
@@ -81,7 +59,7 @@ function createGatewayApp(options = {}) {
       }
     }
 
-    const paymentsUrl = process.env.PAYMENTS_SERVICE_URL || "http://127.0.0.1:4002";
+    const paymentsUrl = (process.env.PAYMENTS_SERVICE_URL || "http://127.0.0.1:4002").replace(/\/$/, "");
     try {
       return await fetchJsonWithTimeout(`${paymentsUrl}${path}`, {
         method,
@@ -95,7 +73,7 @@ function createGatewayApp(options = {}) {
     }
   }
 
-  app.get(["/health", "/api/health"], async (_req, res) => {
+  app.get(["/", "/health", "/api/health"], async (_req, res) => {
     let ordersHealth = { status: "down" };
     let paymentsHealth = { status: "down" };
 
@@ -118,9 +96,13 @@ function createGatewayApp(options = {}) {
     res.status(allOk ? 200 : 503).json({
       status: allOk ? "ok" : "degraded",
       service: SERVICE_NAME,
-      mode: inProcess ? "serverless-unified" : "microservices-docker",
+      mode: "distributed-microservices",
       version: process.env.SERVICE_VERSION || "v1",
       commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
+      upstreams: {
+        ordersUrl: process.env.ORDERS_SERVICE_URL || "http://127.0.0.1:4001",
+        paymentsUrl: process.env.PAYMENTS_SERVICE_URL || "http://127.0.0.1:4002",
+      },
       services: {
         gateway: { status: "ok", version: process.env.SERVICE_VERSION || "v1" },
         orders: ordersHealth,
