@@ -8,10 +8,7 @@ const {
   connectDB,
   getDbStatus,
 } = require("../../shared");
-const {
-  ordersRouter,
-  getOrderFaultState,
-} = require("./routes/orders");
+const { ordersRouter } = require("./routes/orders");
 
 const SERVICE_NAME = "orders";
 const logger = createLogger(SERVICE_NAME);
@@ -23,13 +20,11 @@ function createOrdersApp() {
   app.use(createTelemetryMiddleware(SERVICE_NAME));
 
   app.get("/health", (_req, res) => {
-    const fault = getOrderFaultState();
     res.status(200).json({
-      status: fault.mode === "healthy" ? "ok" : "fault_active",
+      status: "ok",
       service: SERVICE_NAME,
       version: process.env.SERVICE_VERSION || "v1",
-      commit: process.env.GIT_COMMIT_SHA || "HEAD",
-      fault,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
       db: getDbStatus(),
       uptimeSeconds: Math.floor(process.uptime()),
       timestamp: new Date().toISOString(),
@@ -42,10 +37,7 @@ function createOrdersApp() {
   });
 
   app.get("/telemetry", (_req, res) => {
-    res.json({
-      ...getTelemetrySummary(SERVICE_NAME),
-      fault: getOrderFaultState(),
-    });
+    res.json(getTelemetrySummary(SERVICE_NAME));
   });
 
   app.get("/logs", (req, res) => {
@@ -57,7 +49,6 @@ function createOrdersApp() {
 
   app.use("/", ordersRouter);
 
-  // Structured JSON error handler with stack trace extraction for git blame
   app.use((err, req, res, _next) => {
     const status = err.statusCode || 500;
     const logEntry = logger.error(err.message || "Unhandled error in orders service", {
@@ -72,7 +63,7 @@ function createOrdersApp() {
       message: err.message,
       service: SERVICE_NAME,
       version: process.env.SERVICE_VERSION || "v1",
-      commit: process.env.GIT_COMMIT_SHA || "HEAD",
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
       topFrame: logEntry.topFrame,
     });
   });

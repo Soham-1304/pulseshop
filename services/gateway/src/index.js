@@ -10,41 +10,10 @@ const {
   invokeExpressApp,
 } = require("../../shared");
 const { createOrdersApp } = require("../../orders/src/index");
-const {
-  getOrderFaultState,
-  setOrderFaultState,
-} = require("../../orders/src/routes/orders");
 const { createPaymentsApp } = require("../../payments/src/index");
-const {
-  getPaymentFaultState,
-  setPaymentFaultState,
-} = require("../../payments/src/routes/payments");
 
 const SERVICE_NAME = "gateway";
 const logger = createLogger(SERVICE_NAME);
-
-// Canary routing config (used when orders-v2 canary container is active)
-const canaryConfig = {
-  enabled: process.env.CANARY_ENABLED === "true",
-  v2WeightPct: Number(process.env.CANARY_WEIGHT_PCT || 10), // 10% traffic to v2
-  v1Hits: 0,
-  v2Hits: 0,
-};
-
-function selectOrdersTargetUrl() {
-  const v1Url = process.env.ORDERS_SERVICE_URL || "http://127.0.0.1:4001";
-  const v2Url = process.env.ORDERS_CANARY_URL || "";
-
-  if (canaryConfig.enabled && v2Url) {
-    const roll = Math.random() * 100;
-    if (roll < canaryConfig.v2WeightPct) {
-      canaryConfig.v2Hits += 1;
-      return { url: v2Url, targetVersion: "v2" };
-    }
-  }
-  canaryConfig.v1Hits += 1;
-  return { url: v1Url, targetVersion: "v1" };
-}
 
 async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 4500) {
   const controller = new AbortController();
@@ -82,7 +51,6 @@ function createGatewayApp(options = {}) {
   app.use(express.json());
   app.use(createTelemetryMiddleware(SERVICE_NAME));
 
-  // Mount in-process sub-apps under internal prefixes when running in serverless / single-process mode
   let localOrdersApp = null;
   let localPaymentsApp = null;
   if (inProcess) {
@@ -92,23 +60,21 @@ function createGatewayApp(options = {}) {
     app.use("/_internal/payments", localPaymentsApp);
   }
 
-  // Helper to call either remote microservice container or local in-process router
   async function callService(service, method, path, body = null) {
     if (inProcess) {
-      // Directly execute against in-process sub-app via ephemeral local loopback or direct handler
       const targetApp = service === "orders" ? localOrdersApp : localPaymentsApp;
       return invokeExpressApp(targetApp, method, path, body);
     }
 
     if (service === "orders") {
-      const { url } = selectOrdersTargetUrl();
+      const ordersUrl = process.env.ORDERS_SERVICE_URL || "http://127.0.0.1:4001";
       try {
-        return await fetchJsonWithTimeout(`${url}${path}`, {
+        return await fetchJsonWithTimeout(`${ordersUrl}${path}`, {
           method,
           body: body ? JSON.stringify(body) : undefined,
         });
       } catch (err) {
-        const wrapped = new Error(`ORDERS_SERVICE_UNREACHABLE: Failed calling ${url}${path} (${err.message})`);
+        const wrapped = new Error(`ORDERS_SERVICE_UNREACHABLE: Failed calling ${ordersUrl}${path} (${err.message})`);
         wrapped.statusCode = 503;
         wrapped.serviceTarget = "orders";
         throw wrapped;
@@ -129,7 +95,6 @@ function createGatewayApp(options = {}) {
     }
   }
 
-  // Health probe
   app.get(["/health", "/api/health"], async (_req, res) => {
     let ordersHealth = { status: "down" };
     let paymentsHealth = { status: "down" };
@@ -148,17 +113,14 @@ function createGatewayApp(options = {}) {
       paymentsHealth = { status: "unreachable", error: e.message };
     }
 
-    const allOk =
-      ordersHealth.status === "ok" &&
-      paymentsHealth.status === "ok";
+    const allOk = ordersHealth.status === "ok" && paymentsHealth.status === "ok";
 
-    res.status(allOk ? 200 : 207).json({
+    res.status(allOk ? 200 : 503).json({
       status: allOk ? "ok" : "degraded",
       service: SERVICE_NAME,
       mode: inProcess ? "serverless-unified" : "microservices-docker",
       version: process.env.SERVICE_VERSION || "v1",
-      commit: process.env.GIT_COMMIT_SHA || "HEAD",
-      canary: canaryConfig,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
       services: {
         gateway: { status: "ok", version: process.env.SERVICE_VERSION || "v1" },
         orders: ordersHealth,
@@ -169,13 +131,11 @@ function createGatewayApp(options = {}) {
     });
   });
 
-  // Prometheus scrape endpoint
   app.get(["/metrics", "/api/metrics"], async (_req, res) => {
     res.set("Content-Type", register.contentType);
     res.end(await register.metrics());
   });
 
-  // Aggregated telemetry & recent structured logs for the Storefront UI & SRE Agent
   app.get("/api/telemetry", async (_req, res) => {
     let ordersTelemetry = null;
     let paymentsTelemetry = null;
@@ -197,7 +157,6 @@ function createGatewayApp(options = {}) {
       gateway: getTelemetrySummary(SERVICE_NAME),
       orders: ordersTelemetry,
       payments: paymentsTelemetry,
-      canary: canaryConfig,
       timestamp: new Date().toISOString(),
     });
   });
@@ -231,7 +190,6 @@ function createGatewayApp(options = {}) {
     });
   });
 
-  // Storefront Catalog
   app.get("/api/products", async (_req, res, next) => {
     try {
       const response = await callService("orders", "GET", "/products");
@@ -241,7 +199,6 @@ function createGatewayApp(options = {}) {
     }
   });
 
-  // Recent Orders Feed
   app.get("/api/orders", async (req, res, next) => {
     try {
       const limit = req.query.limit || 20;
@@ -252,10 +209,6 @@ function createGatewayApp(options = {}) {
     }
   });
 
-  // End-to-End Checkout Flow:
-  // 1. Estimates amount from items
-  // 2. Authorizes payment via Payments Service (POST /pay)
-  // 3. Creates & persists order via Orders Service (POST /orders)
   app.post("/api/checkout", async (req, res, next) => {
     try {
       const {
@@ -278,7 +231,7 @@ function createGatewayApp(options = {}) {
         0
       );
 
-      // Step 1: Call Payments Microservice
+      // Step 1: Authorize payment via Payments Microservice
       const payRes = await callService("payments", "POST", "/pay", {
         amount: Math.max(1, estimatedAmount),
         customerEmail,
@@ -297,7 +250,7 @@ function createGatewayApp(options = {}) {
         });
       }
 
-      // Step 2: Call Orders Microservice
+      // Step 2: Persist order via Orders Microservice
       const orderRes = await callService("orders", "POST", "/orders", {
         customerEmail,
         items,
@@ -328,77 +281,6 @@ function createGatewayApp(options = {}) {
     }
   });
 
-  // Live Chaos / Fault Control Endpoint (for Demo & Judges)
-  app.get("/api/faults", async (_req, res) => {
-    let ordersFault = getOrderFaultState();
-    let paymentsFault = getPaymentFaultState();
-    if (!inProcess) {
-      try {
-        const o = await callService("orders", "GET", "/fault");
-        ordersFault = o.data;
-      } catch (e) {
-        ordersFault = { mode: "container_unreachable", error: e.message };
-      }
-      try {
-        const p = await callService("payments", "GET", "/fault");
-        paymentsFault = p.data;
-      } catch (e) {
-        paymentsFault = { mode: "container_unreachable", error: e.message };
-      }
-    }
-    res.json({
-      orders: ordersFault,
-      payments: paymentsFault,
-      canary: canaryConfig,
-    });
-  });
-
-  app.post("/api/faults", async (req, res, next) => {
-    try {
-      const { target = "orders", mode = "healthy", latencyMs, resetStock = false, canary } = req.body || {};
-
-      if (canary !== undefined) {
-        if (canary.enabled !== undefined) canaryConfig.enabled = Boolean(canary.enabled);
-        if (canary.v2WeightPct !== undefined) canaryConfig.v2WeightPct = Number(canary.v2WeightPct);
-      }
-
-      if (target === "reset-all") {
-        if (inProcess) {
-          setOrderFaultState({ mode: "healthy" });
-          setPaymentFaultState({ mode: "healthy", latencyMs: 0 });
-        } else {
-          await callService("orders", "POST", "/fault", { mode: "healthy", resetStock: true }).catch(() => {});
-          await callService("payments", "POST", "/fault", { mode: "healthy", latencyMs: 0 }).catch(() => {});
-        }
-        canaryConfig.enabled = false;
-        logger.info("All fault states reset to healthy");
-        return res.json({
-          reset: true,
-          orders: getOrderFaultState(),
-          payments: getPaymentFaultState(),
-          canary: canaryConfig,
-        });
-      }
-
-      if (target === "payments") {
-        const result = inProcess
-          ? setPaymentFaultState({ mode, latencyMs })
-          : (await callService("payments", "POST", "/fault", { mode, latencyMs })).data.fault;
-        logger.warn(`Injected fault on payments service: ${mode}`, { target, mode, latencyMs });
-        return res.json({ updated: true, target: "payments", fault: result });
-      }
-
-      const result = inProcess
-        ? setOrderFaultState({ mode, latencyMs })
-        : (await callService("orders", "POST", "/fault", { mode, latencyMs, resetStock })).data.fault;
-      logger.warn(`Injected fault on orders service: ${mode}`, { target, mode, latencyMs });
-      return res.json({ updated: true, target: "orders", fault: result });
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  // Centralized error handler
   app.use((err, req, res, _next) => {
     const status = err.statusCode || 500;
     const entry = logger.error(err.message || "Gateway unhandled exception", {
@@ -414,7 +296,7 @@ function createGatewayApp(options = {}) {
       message: err.message,
       service: err.serviceTarget || SERVICE_NAME,
       version: process.env.SERVICE_VERSION || "v1",
-      commit: process.env.GIT_COMMIT_SHA || "HEAD",
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
       topFrame: entry.topFrame,
     });
   });

@@ -8,10 +8,7 @@ const {
   connectDB,
   getDbStatus,
 } = require("../../shared");
-const {
-  paymentsRouter,
-  getPaymentFaultState,
-} = require("./routes/payments");
+const { paymentsRouter } = require("./routes/payments");
 
 const SERVICE_NAME = "payments";
 const logger = createLogger(SERVICE_NAME);
@@ -23,14 +20,11 @@ function createPaymentsApp() {
   app.use(createTelemetryMiddleware(SERVICE_NAME));
 
   app.get("/health", (_req, res) => {
-    const fault = getPaymentFaultState();
-    const isHealthy = fault.mode !== "outage";
-    res.status(isHealthy ? 200 : 503).json({
-      status: isHealthy ? "ok" : "degraded",
+    res.status(200).json({
+      status: "ok",
       service: SERVICE_NAME,
       version: process.env.SERVICE_VERSION || "v1",
-      commit: process.env.GIT_COMMIT_SHA || "HEAD",
-      fault,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
       db: getDbStatus(),
       uptimeSeconds: Math.floor(process.uptime()),
       timestamp: new Date().toISOString(),
@@ -43,10 +37,7 @@ function createPaymentsApp() {
   });
 
   app.get("/telemetry", (_req, res) => {
-    res.json({
-      ...getTelemetrySummary(SERVICE_NAME),
-      fault: getPaymentFaultState(),
-    });
+    res.json(getTelemetrySummary(SERVICE_NAME));
   });
 
   app.get("/logs", (req, res) => {
@@ -58,7 +49,6 @@ function createPaymentsApp() {
 
   app.use("/", paymentsRouter);
 
-  // Centralized structured JSON error handler
   app.use((err, req, res, _next) => {
     const status = err.statusCode || 500;
     const logEntry = logger.error(err.message || "Unhandled error in payments service", {
@@ -73,7 +63,7 @@ function createPaymentsApp() {
       message: err.message,
       service: SERVICE_NAME,
       version: process.env.SERVICE_VERSION || "v1",
-      commit: process.env.GIT_COMMIT_SHA || "HEAD",
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
       topFrame: logEntry.topFrame,
     });
   });

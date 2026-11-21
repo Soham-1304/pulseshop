@@ -5,10 +5,8 @@ const {
   decrementProductStock,
   createOrderRecord,
   listOrders,
-  resetStore,
   recordOrderCreated,
   recordOrderFailed,
-  setServiceHealth,
 } = require("../../../shared");
 
 const router = express.Router();
@@ -19,39 +17,10 @@ const PROMO_CODES = {
   SRE15: 0.15,
 };
 
-// Runtime / demo fault state (can also be triggered by pushing fault branches)
-const orderFaultState = {
-  mode: process.env.INITIAL_FAULT_MODE || "healthy", // "healthy" | "bug-checkout" | "silent-order-drop" | "slow-query"
-  latencyMs: 1450,
-  updatedAt: null,
-};
-
-function getOrderFaultState() {
-  return { ...orderFaultState };
-}
-
-function setOrderFaultState(nextState = {}) {
-  orderFaultState.mode = nextState.mode || "healthy";
-  if (nextState.latencyMs !== undefined) {
-    orderFaultState.latencyMs = Number(nextState.latencyMs);
-  }
-  orderFaultState.updatedAt = new Date().toISOString();
-  setServiceHealth("orders", orderFaultState.mode === "healthy");
-  return getOrderFaultState();
-}
-
 /**
  * Calculates discount amount for an order.
- * On the `bug-checkout` branch (or when fault mode is `bug-checkout`),
- * a regression accesses `discountMeta.percentage` without a null guard when no promo code is passed.
  */
 function calculatePromoDiscount(subtotal, promoCode, discountMeta) {
-  if (orderFaultState.mode === "bug-checkout") {
-    // Fault simulation matching bug-checkout commit: unguarded property access on undefined discountMeta
-    const rawRate = discountMeta.percentage / 100;
-    return Number((subtotal * rawRate).toFixed(2));
-  }
-
   if (discountMeta && typeof discountMeta.percentage === "number") {
     return Number((subtotal * (discountMeta.percentage / 100)).toFixed(2));
   }
@@ -80,9 +49,6 @@ router.get("/products", async (_req, res, next) => {
 
 router.get("/orders", async (req, res, next) => {
   try {
-    if (orderFaultState.mode === "slow-query") {
-      await new Promise((resolve) => setTimeout(resolve, Math.min(orderFaultState.latencyMs, 800)));
-    }
     const limit = Math.min(50, Number(req.query.limit || 20));
     const orders = await listOrders(limit);
     res.json({
@@ -97,10 +63,6 @@ router.get("/orders", async (req, res, next) => {
 
 router.post("/orders", async (req, res, next) => {
   try {
-    if (orderFaultState.mode === "slow-query") {
-      await new Promise((resolve) => setTimeout(resolve, orderFaultState.latencyMs));
-    }
-
     const {
       customerEmail = "guest@pulseshop.io",
       items = [],
@@ -148,27 +110,6 @@ router.post("/orders", async (req, res, next) => {
     const totalAmount = Number(Math.max(0, subtotal - discountAmount).toFixed(2));
     const orderId = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
 
-    // Fault 2: Silent business logic bug (returns 200 OK to caller, but drops DB persistence & metric counter)
-    if (orderFaultState.mode === "silent-order-drop") {
-      return res.status(201).json({
-        order: {
-          orderId,
-          customerEmail,
-          items: resolvedItems,
-          subtotal,
-          discountAmount,
-          totalAmount,
-          promoCode,
-          paymentId,
-          paymentStatus: "AUTHORIZED",
-          status: "PENDING_ASYNC_SYNC",
-          serviceVersion: process.env.SERVICE_VERSION || "v1",
-          commitSha: process.env.GIT_COMMIT_SHA || "HEAD",
-          persisted: false,
-        },
-      });
-    }
-
     for (const item of resolvedItems) {
       await decrementProductStock(item.sku, item.quantity);
     }
@@ -185,7 +126,7 @@ router.post("/orders", async (req, res, next) => {
       paymentStatus: "AUTHORIZED",
       status: "CONFIRMED",
       serviceVersion: process.env.SERVICE_VERSION || "v1",
-      commitSha: process.env.GIT_COMMIT_SHA || "HEAD",
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "HEAD",
     });
 
     recordOrderCreated("orders", orderId, totalAmount);
@@ -202,21 +143,7 @@ router.post("/orders", async (req, res, next) => {
   }
 });
 
-router.get("/fault", (_req, res) => {
-  res.json(getOrderFaultState());
-});
-
-router.post("/fault", async (req, res) => {
-  const state = setOrderFaultState(req.body || {});
-  if (req.body && req.body.resetStock) {
-    await resetStore();
-  }
-  res.json({ updated: true, fault: state });
-});
-
 module.exports = {
   ordersRouter: router,
   calculatePromoDiscount,
-  getOrderFaultState,
-  setOrderFaultState,
 };

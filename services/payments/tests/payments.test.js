@@ -2,11 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { invokeExpressApp } = require("../../shared");
 const { createPaymentsApp } = require("../src/index");
-const { setPaymentFaultState } = require("../src/routes/payments");
 
 test("Payments Service - Health check and payment authorization", async () => {
   process.env.USE_MEMORY_DB = "true";
-  setPaymentFaultState({ mode: "healthy", latencyMs: 0 });
   const app = createPaymentsApp();
 
   const health = await invokeExpressApp(app, "GET", "/health");

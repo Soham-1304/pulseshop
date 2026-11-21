@@ -2,11 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { invokeExpressApp } = require("../../shared");
 const { createOrdersApp } = require("../src/index");
-const { setOrderFaultState } = require("../src/routes/orders");
 
 test("Orders Service - Catalog listing and checkout without promo/discount metadata", async () => {
   process.env.USE_MEMORY_DB = "true";
-  setOrderFaultState({ mode: "healthy" });
   const app = createOrdersApp();
 
   // 1. Catalog check
