@@ -1,0 +1,173 @@
+# ---------------------------------------------------------------------------
+# PulseShop Microservices & SRE Observability Stack
+#
+# Services:
+#   - nginx          : Reverse proxy & Canary router (:8080)
+#   - frontend       : React + Tailwind Storefront
+#   - gateway        : API Gateway (:4000)
+#   - orders         : Catalog & Order Persistence (:4001)
+#   - payments       : Payment Authorization (:4002)
+#   - mongodb        : Primary Store (or override with MONGODB_URI for Atlas)
+#   - redis          : Cache & Event Stream (:6379)
+#   - prometheus     : 5s Metrics Scraper (:9090)
+#   - grafana        : Live Dashboards (:3000)
+#   - load-generator : Steady traffic generator (checkouts + browsing)
+# ---------------------------------------------------------------------------
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: pulseshop-nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - frontend
+      - gateway
+    networks:
+      - pulseshop-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: pulseshop-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    networks:
+      - pulseshop-net
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    container_name: pulseshop-gateway
+    restart: unless-stopped
+    environment:
+      GATEWAY_PORT: 4000
+      ORDERS_SERVICE_URL: http://orders:4001
+      PAYMENTS_SERVICE_URL: http://payments:4002
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/pulseshop}
+      REDIS_URL: redis://redis:6379
+      SERVICE_VERSION: ${SERVICE_VERSION:-v1}
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-main}
+    ports:
+      - "4000:4000"
+    depends_on:
+      - orders
+      - payments
+    networks:
+      - pulseshop-net
+
+  orders:
+    build:
+      context: .
+      dockerfile: services/orders/Dockerfile
+    container_name: pulseshop-orders
+    restart: unless-stopped
+    environment:
+      ORDERS_PORT: 4001
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/pulseshop}
+      REDIS_URL: redis://redis:6379
+      SERVICE_VERSION: ${SERVICE_VERSION:-v1}
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-main}
+      INITIAL_FAULT_MODE: ${INITIAL_FAULT_MODE:-healthy}
+    ports:
+      - "4001:4001"
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - pulseshop-net
+
+  payments:
+    build:
+      context: .
+      dockerfile: services/payments/Dockerfile
+    container_name: pulseshop-payments
+    restart: unless-stopped
+    environment:
+      PAYMENTS_PORT: 4002
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/pulseshop}
+      SERVICE_VERSION: ${SERVICE_VERSION:-v1}
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-main}
+    ports:
+      - "4002:4002"
+    depends_on:
+      - mongodb
+    networks:
+      - pulseshop-net
+
+  mongodb:
+    image: mongo:7
+    container_name: pulseshop-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    networks:
+      - pulseshop-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: pulseshop-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - pulseshop-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pulseshop-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - pulseshop-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pulseshop-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - pulseshop-net
+
+  load-generator:
+    image: node:20-alpine
+    container_name: pulseshop-loadgen
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts:ro
+    environment:
+      TARGET_URL: http://gateway:4000
+      INTERVAL_MS: 2500
+    command: ["node", "scripts/load-gen.js"]
+    depends_on:
+      - gateway
+    networks:
+      - pulseshop-net
+
+volumes:
+  mongodata:
+  grafana-data:
+
+networks:
+  pulseshop-net:
+    driver: bridge

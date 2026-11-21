@@ -1,0 +1,40 @@
+# ---------------------------------------------------------------------------
+# PulseShop Prometheus Configuration
+# Scrapes /metrics from gateway, orders, and payments every 5 seconds
+# as required by CORE 1 (The Watcher).
+# ---------------------------------------------------------------------------
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "pulseshop-gateway"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gateway:4000"]
+        labels:
+          environment: "production"
+          service: "gateway"
+          version: "v1"
+
+  - job_name: "pulseshop-orders"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["orders:4001"]
+        labels:
+          environment: "production"
+          service: "orders"
+          version: "v1"
+
+  - job_name: "pulseshop-payments"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["payments:4002"]
+        labels:
+          environment: "production"
+          service: "payments"
+          version: "v1"

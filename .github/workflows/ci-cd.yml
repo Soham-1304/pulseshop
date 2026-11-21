@@ -1,0 +1,70 @@
+name: PulseShop CI/CD & SRE Deploy Hook
+
+on:
+  push:
+    branches:
+      - main
+      - "bug-*"
+      - "slow-*"
+      - "bad-*"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-and-verify:
+    name: Microservices Test Suite & Sietch Dependency Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run Orders, Payments & Gateway Regression Tests
+        env:
+          USE_MEMORY_DB: "true"
+        run: |
+          node --test services/payments/tests/payments.test.js
+          node --test services/orders/tests/orders.test.js
+          node --test services/gateway/tests/gateway.test.js
+
+      - name: Build React Storefront
+        run: |
+          npm --prefix frontend install --ignore-scripts
+          npm --prefix frontend run build
+
+  notify-sre-agent:
+    name: Emit Deploy Marker to SRE Agent Listener
+    needs: test-and-verify
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Release Deploy Note to SRE Agent Listener
+        env:
+          SRE_AGENT_LISTENER_URL: ${{ secrets.SRE_AGENT_LISTENER_URL }}
+        run: |
+          PAYLOAD=$(cat <<EOF
+          {
+            "sha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "service": "orders",
+            "environment": "production",
+            "author": "${{ github.actor }}",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+          )
+          echo "Deploy Marker Payload:"
+          echo "$PAYLOAD"
+          if [ -n "$SRE_AGENT_LISTENER_URL" ]; then
+            curl -sS -X POST "${SRE_AGENT_LISTENER_URL}/api/deployments" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" || true
+          fi

@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pulseshop
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulseshop-gateway
+  namespace: pulseshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pulseshop-gateway
+  template:
+    metadata:
+      labels:
+        app: pulseshop-gateway
+    spec:
+      containers:
+        - name: gateway
+          image: ghcr.io/soham-1304/pulseshop-gateway:latest
+          ports:
+            - containerPort: 4000
+          env:
+            - name: ORDERS_SERVICE_URL
+              value: "http://pulseshop-orders:4001"
+            - name: PAYMENTS_SERVICE_URL
+              value: "http://pulseshop-payments:4002"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulseshop-orders
+  namespace: pulseshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pulseshop-orders
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: pulseshop-orders
+        version: v1
+    spec:
+      containers:
+        - name: orders
+          image: ghcr.io/soham-1304/pulseshop-orders:latest
+          ports:
+            - containerPort: 4001
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulseshop-payments
+  namespace: pulseshop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pulseshop-payments
+  template:
+    metadata:
+      labels:
+        app: pulseshop-payments
+    spec:
+      containers:
+        - name: payments
+          image: ghcr.io/soham-1304/pulseshop-payments:latest
+          ports:
+            - containerPort: 4002
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4002
+            initialDelaySeconds: 5
+            periodSeconds: 10

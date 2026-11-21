@@ -1,0 +1,15 @@
+{
+  "name": "@pulseshop/gateway",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test tests/gateway.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "mongoose": "^8.8.1",
+    "prom-client": "^15.1.3"
+  }
+}

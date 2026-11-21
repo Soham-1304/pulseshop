@@ -1,0 +1,37 @@
+{
+  "name": "pulseshop-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PulseShop - Production Microservices E-Commerce Platform with Prometheus Telemetry, Canary Routing & DevOps Pipeline",
+  "workspaces": [
+    "services/shared",
+    "services/gateway",
+    "services/orders",
+    "services/payments",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "dev:orders": "node services/orders/src/index.js",
+    "dev:payments": "node services/payments/src/index.js",
+    "dev:gateway": "node services/gateway/src/index.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix services/orders test && npm --prefix services/payments test && npm --prefix services/gateway test",
+    "test:orders": "npm --prefix services/orders test",
+    "test:payments": "npm --prefix services/payments test",
+    "test:gateway": "npm --prefix services/gateway test",
+    "seed": "node scripts/seed.js",
+    "load": "node scripts/load-gen.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "mongoose": "^8.8.1",
+    "prom-client": "^15.1.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

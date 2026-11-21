@@ -1,0 +1,63 @@
+{
+  "title": "PulseShop - SRE Agent & Microservices Telemetry",
+  "uid": "pulseshop-sre-dashboard",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "5xx Error Rate by Service (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m])) by (service, version)",
+          "legendFormat": "{{service}} ({{version}}) 5xx"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "p95 Response Latency (seconds)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, service, version))",
+          "legendFormat": "{{service}} ({{version}}) p95"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Business Metric: Customer Orders Saved per Minute",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(shop_orders_created_total[1m])) by (version) * 60",
+          "legendFormat": "orders-{{version}} / min"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Microservice Health Status",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "shop_service_health_status",
+          "legendFormat": "{{service}} ({{version}})"
+        }
+      ]
+    }
+  ]
+}
