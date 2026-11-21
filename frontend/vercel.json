@@ -3,15 +3,15 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://pulseshop-gateway-41zp9bnd4-2024sohamk-isuacins-projects.vercel.app/api/$1"
+      "destination": "https://pulseshop-gateway-e1b5ofzqn-2024sohamk-isuacins-projects.vercel.app/api/$1"
     },
     {
       "source": "/metrics",
-      "destination": "https://pulseshop-gateway-41zp9bnd4-2024sohamk-isuacins-projects.vercel.app/metrics"
+      "destination": "https://pulseshop-gateway-e1b5ofzqn-2024sohamk-isuacins-projects.vercel.app/metrics"
     },
     {
       "source": "/health",
-      "destination": "https://pulseshop-gateway-41zp9bnd4-2024sohamk-isuacins-projects.vercel.app/health"
+      "destination": "https://pulseshop-gateway-e1b5ofzqn-2024sohamk-isuacins-projects.vercel.app/health"
     }
   ]
 }

@@ -1,8 +1,8 @@
 {
   "version": 2,
   "env": {
-    "ORDERS_SERVICE_URL": "https://pulseshop-orders-7zi3gxoeo-2024sohamk-isuacins-projects.vercel.app",
-    "PAYMENTS_SERVICE_URL": "https://pulseshop-payments-7e3kr3j5d-2024sohamk-isuacins-projects.vercel.app"
+    "ORDERS_SERVICE_URL": "https://pulseshop-orders-cgel0h7kr-2024sohamk-isuacins-projects.vercel.app",
+    "PAYMENTS_SERVICE_URL": "https://pulseshop-payments-jjdzwbydu-2024sohamk-isuacins-projects.vercel.app"
   },
   "rewrites": [
     {
