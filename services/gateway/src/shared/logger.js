@@ -1,7 +1,66 @@
 const path = require("path");
 
 const MAX_LOG_BUFFER = 200;
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const PUSH_DEBOUNCE_MS = 30 * 1000;
 const logBuffer = [];
+const lastPushByRule = new Map();
+
+function pruneLogBuffer(now = Date.now()) {
+  const cutoff = now - SIX_HOURS_MS;
+  while (logBuffer.length > 0) {
+    const oldest = logBuffer[logBuffer.length - 1];
+    const ts = Date.parse(oldest.timestamp);
+    if ((Number.isFinite(ts) && ts < cutoff) || logBuffer.length > MAX_LOG_BUFFER) {
+      logBuffer.pop();
+    } else {
+      break;
+    }
+  }
+}
+
+function pushIncidentBundleNonBlocking(serviceName, rule, entry) {
+  const webhookBase = process.env.PATCHUP_WEBHOOK_URL || process.env.AEGIS_WEBHOOK_URL;
+  if (!webhookBase || typeof fetch !== "function") return;
+
+  const now = Date.now();
+  const key = `${serviceName}:${rule}`;
+  const lastPush = lastPushByRule.get(key) || 0;
+  if (now - lastPush < PUSH_DEBOUNCE_MS) return;
+  lastPushByRule.set(key, now);
+
+  const url = `${webhookBase.replace(/\/+$/, "")}/api/webhooks/incident-bundle`;
+  const payload = {
+    projectId: process.env.PATCHUP_PROJECT_ID || process.env.AEGIS_PROJECT_ID || "pulseshop",
+    repo: process.env.GITHUB_REPO_FULL_NAME || "Soham-1304/pulseshop",
+    serviceId: serviceName.endsWith("-service") ? serviceName : `${serviceName}-service`,
+    service: serviceName,
+    rule,
+    severity: "CRITICAL",
+    windowHours: 6,
+    topFrame: entry.topFrame || undefined,
+    logs: logBuffer.slice(0, 50).map((item) => JSON.stringify(item)),
+    metrics: {
+      service: serviceName,
+      errorMessage: entry.message,
+      status: entry.status || 500,
+      timestamp: entry.timestamp,
+    },
+    timestamp: entry.timestamp,
+  };
+
+  try {
+    const signal = typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined;
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal,
+    }).catch(() => {});
+  } catch (_err) {
+    // Non-blocking reporter: never interrupt application request flow
+  }
+}
 
 /**
  * Parses a V8 Error stack trace and extracts the top application stack frame
@@ -80,8 +139,10 @@ function createLogger(serviceName) {
     }
 
     logBuffer.unshift(entry);
-    if (logBuffer.length > MAX_LOG_BUFFER) {
-      logBuffer.pop();
+    pruneLogBuffer();
+
+    if (level === "error" && entry.topFrame) {
+      pushIncidentBundleNonBlocking(serviceName, "ERR_5XX_SPIKE", entry);
     }
 
     const serialized = JSON.stringify(entry);
